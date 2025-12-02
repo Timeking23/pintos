@@ -118,6 +118,7 @@ void
 sema_up (struct semaphore *sema) 
 {
   enum intr_level old_level;
+  struct thread *unblocked = NULL;
 
   ASSERT (sema != NULL);
 
@@ -127,9 +128,28 @@ sema_up (struct semaphore *sema)
       struct list_elem *max_elem = list_max (&sema->waiters,
                                               thread_priority_less, NULL);
       list_remove (max_elem);
-      thread_unblock (list_entry (max_elem, struct thread, elem));
+      unblocked = list_entry (max_elem, struct thread, elem);
+      thread_unblock (unblocked);
     }
   sema->value++;
+  
+  /* Preempt if unblocked thread has higher priority. */
+  if (unblocked != NULL)
+    {
+      if (intr_context ())
+        {
+          /* In interrupt context, schedule yield on return. */
+          if (unblocked->priority > thread_current ()->priority)
+            intr_yield_on_return ();
+        }
+      else
+        {
+          /* Not in interrupt context, yield immediately. */
+          if (unblocked->priority > thread_current ()->priority)
+            thread_yield ();
+        }
+    }
+  
   intr_set_level (old_level);
 }
 
@@ -263,6 +283,7 @@ lock_release (struct lock *lock)
   struct thread *cur = thread_current ();
   struct list_elem *e;
   int max_priority;
+  int old_priority;
   
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
@@ -272,6 +293,7 @@ lock_release (struct lock *lock)
   
   /* Restore priority to the maximum of original priority and
      priorities of remaining locks. */
+  old_priority = cur->priority;
   max_priority = cur->original_priority;
   for (e = list_begin (&cur->locks); e != list_end (&cur->locks);
        e = list_next (e))
@@ -289,6 +311,16 @@ lock_release (struct lock *lock)
   cur->priority = max_priority;
   
   sema_up (&lock->semaphore);
+  
+  /* If priority was lowered, yield to higher priority thread. */
+  if (old_priority > max_priority && !list_empty (&ready_list))
+    {
+      struct thread *max_ready = list_entry (list_max (&ready_list,
+                                                        thread_priority_less, NULL),
+                                              struct thread, elem);
+      if (max_ready->priority > max_priority)
+        thread_yield ();
+    }
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -367,6 +399,8 @@ cond_wait (struct condition *cond, struct lock *lock)
 void
 cond_signal (struct condition *cond, struct lock *lock UNUSED) 
 {
+  struct thread *cur;
+  
   ASSERT (cond != NULL);
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
