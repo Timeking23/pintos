@@ -36,3 +36,4 @@ echo "1. Navigate to pintos directory"
 echo "2. Build Pintos: cd src/threads && make"
 echo "3. Run Pintos: cd build && pintos --qemu -- run alarm-single"
 
+

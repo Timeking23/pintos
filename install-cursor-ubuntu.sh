@@ -23,3 +23,4 @@ echo "  cursor"
 echo ""
 echo "Or search for 'Cursor' in your application menu."
 
+

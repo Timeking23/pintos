@@ -17,3 +17,4 @@ echo "Or Method 3: Check WSL configuration"
 echo "If you're on WSL, ptrace may be restricted. Try:"
 echo "  echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope"
 
+
