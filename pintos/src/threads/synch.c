@@ -207,7 +207,6 @@ lock_acquire (struct lock *lock)
 {
   struct thread *cur = thread_current ();
   struct thread *holder;
-  int max_waiter_priority;
   
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
@@ -218,21 +217,11 @@ lock_acquire (struct lock *lock)
       holder = lock->holder;
       cur->waiting_lock = lock;
       
-      /* Find the maximum priority among all waiters (including current thread). */
-      max_waiter_priority = cur->priority;
-      if (!list_empty (&lock->semaphore.waiters))
-        {
-          struct thread *max_waiter = list_entry (list_max (&lock->semaphore.waiters,
-                                                             thread_priority_less, NULL),
-                                                   struct thread, elem);
-          if (max_waiter->priority > max_waiter_priority)
-            max_waiter_priority = max_waiter->priority;
-        }
-      
       /* Donate priority to the lock holder chain. */
-      while (holder != NULL && max_waiter_priority > holder->priority)
+      while (holder != NULL && cur->priority > holder->priority)
         {
-          holder->priority = max_waiter_priority;
+          holder->priority = cur->priority;
+          /* Update priority in the chain. */
           holder = (holder->waiting_lock != NULL) ? holder->waiting_lock->holder : NULL;
         }
     }

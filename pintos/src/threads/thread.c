@@ -344,19 +344,46 @@ thread_set_priority (int new_priority)
 {
   struct thread *cur = thread_current ();
   enum intr_level old_level;
-  int old_priority = cur->priority;
+  int old_priority;
+  struct list_elem *e;
+  int max_priority;
   
   old_level = intr_disable ();
-  cur->priority = new_priority;
   
-  /* If we lowered our priority, yield to a higher priority thread. */
-  if (!list_empty (&ready_list) && old_priority > new_priority)
+  /* Update original priority. */
+  cur->original_priority = new_priority;
+  
+  /* Calculate effective priority: max of original priority and
+     priorities donated by locks we hold. */
+  max_priority = new_priority;
+  for (e = list_begin (&cur->locks); e != list_end (&cur->locks);
+       e = list_next (e))
     {
-      struct thread *max_ready = list_entry (list_max (&ready_list, 
-                                                        thread_priority_less, NULL),
-                                              struct thread, elem);
-      if (max_ready->priority > new_priority)
-        thread_yield ();
+      struct lock *l = list_entry (e, struct lock, elem);
+      if (!list_empty (&l->semaphore.waiters))
+        {
+          struct thread *waiter = list_entry (list_max (&l->semaphore.waiters,
+                                                         thread_priority_less, NULL),
+                                               struct thread, elem);
+          if (waiter->priority > max_priority)
+            max_priority = waiter->priority;
+        }
+    }
+  
+  old_priority = cur->priority;
+  if (max_priority != cur->priority)
+    {
+      cur->priority = max_priority;
+      
+      /* If we lowered our priority, yield to a higher priority thread. */
+      if (!list_empty (&ready_list) && old_priority > max_priority)
+        {
+          struct thread *max_ready = list_entry (list_max (&ready_list, 
+                                                            thread_priority_less, NULL),
+                                                  struct thread, elem);
+          if (max_ready->priority > max_priority)
+            thread_yield ();
+        }
     }
   
   intr_set_level (old_level);
