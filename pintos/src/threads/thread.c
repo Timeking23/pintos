@@ -86,7 +86,7 @@ lock_in_thread_locks_owned_list (struct lock *lock)
   return false;
 }
 
-static void
+void
 maybe_lower_priority (struct thread *thread, int priority)
 {
   ASSERT (priority <= thread->priority);
