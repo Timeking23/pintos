@@ -15,6 +15,32 @@
 #include "userprog/process.h"
 #endif
 
+/* List of threads that are asleep. */
+static struct list asleep_threads;
+//helper function
+bool thread_priority_more(const struct list_elem *a,
+                          const struct list_elem *b,
+                          void *aux UNUSED) {
+    const struct thread *ta = list_entry(a, struct thread, elem);
+    const struct thread *tb = list_entry(b, struct thread, elem);
+    return ta->priority > tb->priority;
+}
+
+void maybe_yield_to_ready_thread (void);
+void maybe_yield_to_ready_thread (void) {
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  if (!list_empty (&ready_list)
+      && thread_current ()->priority
+      < list_entry (list_front (&ready_list), struct thread, elem)->priority)
+    {
+      if (intr_context ())
+        intr_yield_on_return ();
+      else
+        thread_yield ();
+    }
+}
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -244,6 +270,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
+  if (!intr_context() && t->priority > thread_current()->priority)
+    thread_yield();
   list_insert_ordered (&ready_list, &t->elem, thread_priority_less, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -342,23 +370,15 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  struct thread *cur = thread_current ();
   enum intr_level old_level;
-  int old_priority = cur->priority;
-  
+
+  new_priority = trim_priority (new_priority);  
   old_level = intr_disable ();
-  cur->priority = new_priority;
-  
-  /* If we lowered our priority, yield to a higher priority thread. */
-  if (!list_empty (&ready_list) && old_priority > new_priority)
-    {
-      struct thread *max_ready = list_entry (list_max (&ready_list, 
-                                                        thread_priority_less, NULL),
-                                              struct thread, elem);
-      if (max_ready->priority > new_priority)
-        thread_yield ();
-    }
-  
+  if (thread_current ()->base_priority == thread_current ()->priority
+      || new_priority > thread_current ()->priority)
+    thread_current ()->priority = new_priority;      
+  thread_current ()->base_priority = new_priority;
+  maybe_yield_to_ready_thread ();
   intr_set_level (old_level);
 }
 
