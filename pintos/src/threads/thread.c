@@ -29,6 +29,7 @@ bool thread_priority_more(const struct list_elem *a,
     return ta->priority > tb->priority;
 }
 
+void maybe_raise_priority(struct thread *, int);
 void maybe_yield_to_ready_thread (void);
 void thread_lock_will_wait (struct lock *lock);
 void thread_lock_acquired (struct lock *lock);
@@ -39,6 +40,19 @@ static void shuffle_ready_thread(struct thread *);
 static int trim_priority(int);
 static bool thread_priority_compare (const struct list_elem *a, const struct list_elem *b,
                                      void *aux UNUSED);
+
+
+            
+static bool 
+maybe_raise_priority (struct thread *thread, int priority)
+{
+  if (priority > thread->priority)
+    {
+      thread->priority = priority;
+      return true;
+    }
+  return false;
+}
 
 
 static bool
