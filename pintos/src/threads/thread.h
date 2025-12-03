@@ -8,11 +8,14 @@
  #ifndef THREADS_THREAD_H
  #define THREADS_THREAD_H
  
- #include <debug.h>
- #include <list.h>
- #include <stdint.h>
- 
- /* States in a thread's life cycle. */
+#include <debug.h>
+#include <list.h>
+#include <stdint.h>
+
+/* Forward declaration. */
+struct lock;
+
+/* States in a thread's life cycle. */
  enum thread_status
    {
      THREAD_RUNNING,     /* Running thread. */
@@ -127,6 +130,11 @@
       * for thread_set_priority(), like a cach
       */
      int init_priority;
+     
+     /*
+      * for timer sleep functionality
+      */
+     int64_t wake_tick;
      /* My Code Ends */
      
  #ifdef USERPROG
@@ -152,8 +160,9 @@
  typedef void thread_func (void *aux);
  tid_t thread_create (const char *name, int priority, thread_func *, void *);
  
- void thread_block (void);
- void thread_unblock (struct thread *);
+void thread_block (void);
+void thread_unblock (struct thread *);
+void thread_sleep (int64_t wake_tick);
  
  struct thread *thread_current (void);
  tid_t thread_tid (void);
@@ -174,16 +183,21 @@
  int thread_get_recent_cpu (void);
  int thread_get_load_avg (void);
  
- /* My Code Begins */
- void test_yield(void); /* Test the current thread whether should out of CPU or not*/
- 
- void update_priority (void); /* Update the thread priority */
- 
- void donate_priority(void); /* Donate the priority (priority inheritance) */
- 
- void lock_remove (struct lock *lock); /* Remove lock from donation_list */
- 
- bool change_priority (const struct list_elem *a, const struct list_elem *b, void *aux); /* change priority */
- /* My Code Ends */
+/* My Code Begins */
+void test_yield(void); /* Test the current thread whether should out of CPU or not*/
+
+void update_priority (void); /* Update the thread priority */
+
+void donate_priority(void); /* Donate the priority (priority inheritance) */
+
+void lock_remove (struct lock *lock); /* Remove lock from donation_list */
+
+bool change_priority (const struct list_elem *a, const struct list_elem *b, void *aux); /* change priority */
+
+/* For compatibility with synch.c */
+void thread_lock_will_wait (struct lock *lock);
+void thread_lock_acquired (struct lock *lock);
+void thread_lock_released (struct lock *lock);
+/* My Code Ends */
  
  #endif /* threads/thread.h */

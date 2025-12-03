@@ -801,9 +801,28 @@
    if ((ta -> priority) > (tb -> priority))
      return true;
    
-   return false;
- }
- 
- /* My Code Ends */
+  return false;
+}
+
+/* Stub implementations for compatibility with synch.c */
+void
+thread_lock_will_wait (struct lock *lock UNUSED)
+{
+  /* This function may be called by synch.c but is not used in the current implementation */
+}
+
+void
+thread_lock_acquired (struct lock *lock UNUSED)
+{
+  /* This function may be called by synch.c but is not used in the current implementation */
+}
+
+void
+thread_lock_released (struct lock *lock UNUSED)
+{
+  /* This function may be called by synch.c but is not used in the current implementation */
+}
+
+/* My Code Ends */
  
  
