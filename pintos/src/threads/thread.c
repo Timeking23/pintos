@@ -30,6 +30,7 @@ bool thread_priority_more(const struct list_elem *a,
 void maybe_yield_to_ready_thread (void);
 void thread_lock_will_wait (struct lock *lock);
 void thread_lock_acquired (struct lock *lock);
+void thread_lock_released (struct lock *lock);
 
 void maybe_yield_to_ready_thread (void) {
   ASSERT (intr_get_level () == INTR_OFF);
@@ -61,6 +62,44 @@ thread_lock_acquired (struct lock *lock)
   list_push_front (&thread_current ()->locks_owned_list, &lock->elem);
   thread_current ()->waiting_lock = NULL;
 }
+void
+thread_lock_released (struct lock *lock)
+{
+  struct list *locks_owned_list;
+  struct list_elem *e;
+  struct lock *owned_lock;
+  struct thread *waiting_thread;
+  int highest_waiting_priority;
+
+  if (thread_mlfqs)
+    return;
+
+  ASSERT (intr_get_level () == INTR_OFF);
+  ASSERT (lock != NULL);
+  ASSERT (lock_get_holder (lock) != thread_current());
+  ASSERT (lock_in_thread_locks_owned_list (lock));
+
+  highest_waiting_priority = PRI_MIN;
+  locks_owned_list = &thread_current ()->locks_owned_list;
+  for (e = list_begin (locks_owned_list); e != list_end (locks_owned_list); )
+    {
+      owned_lock = list_entry (e, struct lock, elem);
+      if (lock == owned_lock)
+        e = list_remove (e);
+      else
+        {
+          waiting_thread = lock_get_highest_priority_waiting_thread (owned_lock);
+          if (waiting_thread != NULL
+              && waiting_thread->priority > highest_waiting_priority)
+            highest_waiting_priority = waiting_thread->priority;
+          e = list_next (e);
+        }
+    }
+  maybe_lower_priority (thread_current(), highest_waiting_priority);
+  maybe_yield_to_ready_thread ();
+}
+
+
 void
 thread_lock_will_wait (struct lock *lock)
 {    
