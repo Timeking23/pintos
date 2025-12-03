@@ -5,6 +5,9 @@
 #include <list.h>
 #include <stdint.h>
 
+/* Forward declaration. */
+struct lock;
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -87,13 +90,12 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-	/*My code starts*/
-	struct lock *lockWaitingOn;			/*Lock that is preventing us from doing work*/
-	struct semaphore *semaWaitingOn;	/*Sema that is preventing us from doing work*/
-	struct thread *receiver;			/*Thread that receives our priority*/
-	int oldPriority;					/*Priority before donation*/
-	/*My code ends*/
+    int priority;                       /* Effective Priority (can be raised 
+                                           or lowered automatically by 
+                                           priority donation). */
+    int original_priority;              /* Original priority before donation. */
+    struct list locks;                 /* Locks this thread is holding. */
+    struct lock *waiting_lock;         /* Lock this thread is waiting for. */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -112,11 +114,6 @@ struct thread
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
-/*My code starts*/
-void thread_donate_priority(struct thread *donator, struct thread *receiver);
-void thread_undo_donate(struct thread *receiver);
-bool comparator(const struct list_elem *one, const struct list_elem *two, void *aux);
-/*My code ends*/
 
 void thread_init (void);
 void thread_start (void);
@@ -143,6 +140,11 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+
+/* For internal use to support priority donation. */
+void thread_lock_will_wait (struct lock *lock);
+void thread_lock_acquired (struct lock *lock);
+void thread_lock_released (struct lock *lock);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
