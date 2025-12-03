@@ -442,7 +442,7 @@ thread_tick (void)
 
   /* Wakeup any sleeping threads. */
 
-  if (!list_empty (&sleep_list))
+  while (!list_empty (&sleep_list))
 
     {
 
@@ -452,21 +452,13 @@ thread_tick (void)
 
       sleeping_thread->wakeup_ticks -= 1;
 
-      for (e = list_begin (&sleep_list); e != list_end (&sleep_list); )
+      if (sleeping_thread->wakeup_ticks > 0)
 
-        {
+        break;
 
-          sleeping_thread = list_entry (e, struct thread, sleep_elem);
+      list_remove (&sleeping_thread->sleep_elem);
 
-          if (sleeping_thread->wakeup_ticks > 0)
-
-            break;
-
-          e = list_remove (e);
-
-          thread_unblock (sleeping_thread);
-
-        }
+      thread_unblock (sleeping_thread);
 
     }
 
@@ -1189,8 +1181,6 @@ thread_lock_released (struct lock *lock)
   ASSERT (intr_get_level () == INTR_OFF);
 
   ASSERT (lock != NULL);
-
-  ASSERT (lock_get_holder (lock) == NULL);
 
   ASSERT (lock_in_thread_locks_owned_list (lock));
 
