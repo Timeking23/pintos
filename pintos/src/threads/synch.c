@@ -36,6 +36,15 @@
 struct thread *lock_get_holder (struct lock *lock);
 struct thread *lock_get_highest_priority_waiting_thread (struct lock *lock);
 static struct thread *sema_get_highest_priority_waiting_thread (struct semaphore *sema);
+static bool thread_priority_compare (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+static bool
+thread_priority_compare (const struct list_elem *a, const struct list_elem *b,
+                         void *aux UNUSED)
+{
+  return list_entry (a, struct thread, elem)->priority
+    < list_entry (b, struct thread, elem)->priority;
+}
 
 static struct thread *
 sema_get_highest_priority_waiting_thread (struct semaphore *sema)
