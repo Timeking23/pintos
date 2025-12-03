@@ -34,7 +34,20 @@
 
 //helper function
 struct thread *lock_get_holder (struct lock *lock);
-struct thread * lock_get_highest_priority_waiting_thread (struct lock *lock);
+struct thread *lock_get_highest_priority_waiting_thread (struct lock *lock);
+static struct thread *sema_get_highest_priority_waiting_thread (struct semaphore *sema);
+
+static struct thread *
+sema_get_highest_priority_waiting_thread (struct semaphore *sema)
+{
+  struct list_elem *e;
+  
+  e = list_max (&sema->waiters, thread_priority_compare, NULL);
+  if (e != list_end (&sema->waiters))
+    return list_entry (e, struct thread, elem);
+  else
+    return NULL;
+}
 
 struct thread *
 lock_get_holder (struct lock *lock)
