@@ -18,7 +18,15 @@
 /* List of threads that are asleep. */
 static struct list asleep_threads;
 
+/* List of processes in THREAD_READY state, that is, processes
+   that are ready to run but not actually running. */
+static struct list ready_list;
+
 #define PRI_MAX_DONATION 8
+
+/* Forward declarations for lock functions from synch.c */
+struct thread *lock_get_holder (struct lock *lock);
+struct thread *lock_get_highest_priority_waiting_thread (struct lock *lock);
 
 static bool maybe_raise_priority(struct thread *, int);
 void maybe_yield_to_ready_thread (void);
@@ -217,10 +225,6 @@ thread_lock_will_wait (struct lock *lock)
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
-
-/* List of processes in THREAD_READY state, that is, processes
-   that are ready to run but not actually running. */
-static struct list ready_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
