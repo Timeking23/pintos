@@ -34,9 +34,9 @@ void thread_lock_will_wait (struct lock *lock);
 void thread_lock_acquired (struct lock *lock);
 void thread_lock_released (struct lock *lock);
 void maybe_lower_priority(struct thread *, int);
-bool lock_in_thread_locks_owned_list(struct lock *);
-void shuffle_ready_thread(struct thread *);
-int trim_priority(int);
+static bool lock_in_thread_locks_owned_list(struct lock *);
+static void shuffle_ready_thread(struct thread *);
+static int trim_priority(int);
 static bool thread_priority_compare (const struct list_elem *a, const struct list_elem *b,
                                      void *aux UNUSED);
 
