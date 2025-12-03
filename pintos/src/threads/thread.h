@@ -107,6 +107,11 @@
      struct lock *waiting_lock;              /* Lock this thread is waiting for. */
      struct list locks_owned_list;          /* List of locks owned by this thread. */
      int base_priority;                     /* Base priority before donations. */
+     
+     /*
+      * Timer sleep functionality.
+      */
+     int64_t wake_tick;                     /* Time when thread should wake up. */
      /* My Code Ends */
      
  #ifdef USERPROG
@@ -139,10 +144,11 @@
  tid_t thread_tid (void);
  const char *thread_name (void);
  
- void thread_exit (void) NO_RETURN;
- void thread_yield (void);
- 
- /* Performs some operation on thread t, given auxiliary data AUX. */
+void thread_exit (void) NO_RETURN;
+void thread_yield (void);
+void thread_sleep (int64_t wake_tick);
+
+/* Performs some operation on thread t, given auxiliary data AUX. */
  typedef void thread_action_func (struct thread *t, void *aux);
  void thread_foreach (thread_action_func *, void *);
  
