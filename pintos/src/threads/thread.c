@@ -17,6 +17,7 @@
 
 /* List of threads that are asleep. */
 static struct list asleep_threads;
+#define PRI_MAX_DONATION 8
 //helper function
 bool thread_priority_more(const struct list_elem *a,
                           const struct list_elem *b,
@@ -27,6 +28,9 @@ bool thread_priority_more(const struct list_elem *a,
 }
 
 void maybe_yield_to_ready_thread (void);
+void thread_lock_will_wait (struct lock *lock);
+void thread_lock_acquired (struct lock *lock);
+
 void maybe_yield_to_ready_thread (void) {
   ASSERT (intr_get_level () == INTR_OFF);
 
@@ -40,6 +44,64 @@ void maybe_yield_to_ready_thread (void) {
         thread_yield ();
     }
 }
+void
+thread_lock_acquired (struct lock *lock)
+{
+  if (thread_mlfqs)
+    return;
+  
+  ASSERT (intr_get_level () == INTR_OFF);
+  ASSERT (!intr_context ());
+  ASSERT (lock != NULL);
+  ASSERT (lock_get_holder (lock) == thread_current());
+  ASSERT (!lock_in_thread_locks_owned_list (lock));
+
+  /* Push to front as locks are usually released in reverse
+     order of acquisition. */
+  list_push_front (&thread_current ()->locks_owned_list, &lock->elem);
+  thread_current ()->waiting_lock = NULL;
+}
+void
+thread_lock_will_wait (struct lock *lock)
+{    
+  struct thread *thread;
+  int nesting;
+
+  if (thread_mlfqs)
+    return;
+  
+  ASSERT (intr_get_level () == INTR_OFF);
+  ASSERT (!intr_context ());
+  ASSERT (lock != NULL);
+  ASSERT (lock_get_holder (lock) != thread_current());
+  ASSERT (!lock_in_thread_locks_owned_list (lock));
+
+  thread = lock_get_holder (lock);
+  nesting = 0;
+
+  while (thread != NULL && nesting < PRI_MAX_DONATION_NESTING)
+    {
+      if (thread->status == THREAD_BLOCKED)
+        {
+          maybe_raise_priority (thread, thread_current ()->priority);
+          if (thread->waiting_lock != NULL)
+            thread = lock_get_holder (thread->waiting_lock);
+          else
+            thread = NULL;
+        }
+      else
+        {
+          if (thread->status == THREAD_READY
+              && maybe_raise_priority (thread, thread_current ()->priority))
+            shuffle_ready_thread (thread);
+          thread = NULL;
+        }
+      nesting++;
+    }
+  thread_current ()->waiting_lock = lock;
+}
+
+
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top

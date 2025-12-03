@@ -210,43 +210,21 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
-  struct thread *cur = thread_current ();
-  struct thread *holder;
-  int max_waiter_priority;
-  
+  enum intr_level old_level;
+    
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  if (lock->holder != NULL)
+  old_level = intr_disable ();
+  if (!sema_try_down (&lock->semaphore))
     {
-      holder = lock->holder;
-      cur->waiting_lock = lock;
-      
-      /* Find the maximum priority among all waiters (including current thread). */
-      max_waiter_priority = cur->priority;
-      if (!list_empty (&lock->semaphore.waiters))
-        {
-          struct thread *max_waiter = list_entry (list_max (&lock->semaphore.waiters,
-                                                             thread_priority_less, NULL),
-                                                   struct thread, elem);
-          if (max_waiter->priority > max_waiter_priority)
-            max_waiter_priority = max_waiter->priority;
-        }
-      
-      /* Donate priority to the lock holder chain. */
-      while (holder != NULL && max_waiter_priority > holder->priority)
-        {
-          holder->priority = max_waiter_priority;
-          holder = (holder->waiting_lock != NULL) ? holder->waiting_lock->holder : NULL;
-        }
+      thread_lock_will_wait (lock);
+      sema_down (&lock->semaphore);
     }
+  lock->holder = thread_current ();
+  thread_lock_acquired (lock);
   
-  sema_down (&lock->semaphore);
-  cur->waiting_lock = NULL;
-  lock->holder = cur;
-  list_push_back (&cur->locks, &lock->elem);
-}
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
