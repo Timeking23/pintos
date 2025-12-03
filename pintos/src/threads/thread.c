@@ -17,6 +17,8 @@
 
 /* List of threads that are asleep. */
 static struct list asleep_threads;
+static struct list ready_list;
+
 #define PRI_MAX_DONATION 8
 //helper function
 bool thread_priority_more(const struct list_elem *a,
@@ -35,7 +37,17 @@ void maybe_lower_priority(struct thread *, int);
 bool lock_in_thread_locks_owned_list(struct lock *);
 void shuffle_ready_thread(struct thread *);
 int trim_priority(int);
+static bool thread_priority_compare (const struct list_elem *a, const struct list_elem *b,
+                                     void *aux UNUSED);
 
+
+static bool
+thread_priority_compare (const struct list_elem *a, const struct list_elem *b,
+                         void *aux UNUSED)
+{
+  return list_entry (a, struct thread, elem)->priority
+    > list_entry (b, struct thread, elem)->priority;
+}
 
 static int
 trim_priority (int priority)
@@ -172,7 +184,7 @@ thread_lock_will_wait (struct lock *lock)
   thread = lock_get_holder (lock);
   nesting = 0;
 
-  while (thread != NULL && nesting < PRI_MAX_DONATION_NESTING)
+  while (thread != NULL && nesting < PRI_MAX_DONATION)
     {
       if (thread->status == THREAD_BLOCKED)
         {
@@ -281,13 +293,6 @@ thread_init (void)
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
-  
-  /* Used for advanced scheduler. */
-  initial_thread->nice = NICE_DEFAULT;
-  initial_thread->recent_cpu = 0;
-  
-  initial_thread->status = THREAD_RUNNING;
-  initial_thread->tid = allocate_tid ();
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
