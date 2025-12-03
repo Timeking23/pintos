@@ -419,7 +419,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 }
 
 /* Comparison function for thread priorities. Returns true if thread A
-   has higher priority than thread B. */
+   has lower priority than thread B (for use with list_max to find highest). */
 static bool
 thread_priority_less (const struct list_elem *a,
                        const struct list_elem *b,
@@ -428,7 +428,7 @@ thread_priority_less (const struct list_elem *a,
   const struct thread *ta = list_entry (a, struct thread, elem);
   const struct thread *tb = list_entry (b, struct thread, elem);
   
-  return ta->priority > tb->priority;
+  return ta->priority < tb->priority;
 }
 
 /* Comparison function for condition variable waiters. Returns true if

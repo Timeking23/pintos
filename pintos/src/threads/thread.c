@@ -1190,7 +1190,7 @@ thread_lock_released (struct lock *lock)
 
   ASSERT (lock != NULL);
 
-  ASSERT (lock_get_holder (lock) != thread_current());
+  ASSERT (lock_get_holder (lock) == NULL);
 
   ASSERT (lock_in_thread_locks_owned_list (lock));
 
@@ -1200,17 +1200,17 @@ thread_lock_released (struct lock *lock)
 
   locks_owned_list = &thread_current ()->locks_owned_list;
 
-  for (e = list_begin (locks_owned_list); e != list_end (locks_owned_list); )
+  /* First, find the highest priority waiting thread on all remaining locks. */
+
+  for (e = list_begin (locks_owned_list); e != list_end (locks_owned_list);
+
+       e = list_next (e))
 
     {
 
       owned_lock = list_entry (e, struct lock, elem);
 
-      if (lock == owned_lock)
-
-        e = list_remove (e);
-
-      else
+      if (lock != owned_lock)
 
         {
 
@@ -1222,11 +1222,15 @@ thread_lock_released (struct lock *lock)
 
             highest_waiting_priority = waiting_thread->priority;
 
-          e = list_next (e);
-
         }
 
     }
+
+  /* Now remove the released lock from the list. */
+
+  list_remove (&lock->elem);
+
+  /* Lower priority if needed. */
 
   maybe_lower_priority (thread_current(), highest_waiting_priority);
 
@@ -1913,11 +1917,7 @@ static void
 maybe_lower_priority (struct thread *thread, int priority)
 
 {
-
-  ASSERT (priority <= thread->priority);
-
   
-
   if (priority < thread->base_priority)
 
     thread->priority = thread->base_priority;
