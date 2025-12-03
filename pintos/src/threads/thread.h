@@ -82,16 +82,18 @@ typedef int tid_t;
    blocked state is on a semaphore wait list. */
 struct thread
   {
-    int64_t wake_tick;
     /* Owned by thread.c. */
     tid_t tid;                          /* Thread identifier. */
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int original_priority;              /* Original priority before donation. */
-    struct list locks;                  /* Locks this thread is holding. */
-    struct lock *waiting_lock;          /* Lock this thread is waiting for. */
+	/*My code starts*/
+	struct lock *lockWaitingOn;			/*Lock that is preventing us from doing work*/
+	struct semaphore *semaWaitingOn;	/*Sema that is preventing us from doing work*/
+	struct thread *receiver;			/*Thread that receives our priority*/
+	int oldPriority;					/*Priority before donation*/
+	/*My code ends*/
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -110,6 +112,11 @@ struct thread
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+/*My code starts*/
+void thread_donate_priority(struct thread *donator, struct thread *receiver);
+void thread_undo_donate(struct thread *receiver);
+bool comparator(const struct list_elem *one, const struct list_elem *two, void *aux);
+/*My code ends*/
 
 void thread_init (void);
 void thread_start (void);
