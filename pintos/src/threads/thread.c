@@ -31,6 +31,60 @@ void maybe_yield_to_ready_thread (void);
 void thread_lock_will_wait (struct lock *lock);
 void thread_lock_acquired (struct lock *lock);
 void thread_lock_released (struct lock *lock);
+void maybe_lower_priority(struct thread *, int);
+bool lock_in_thread_locks_owned_list(struct lock *);
+void shuffle_ready_thread(struct thread *);
+int trim_priority(int);
+
+
+static int
+trim_priority (int priority)
+{
+  if (priority > PRI_MAX)
+    return PRI_MAX;
+  else if (priority < PRI_MIN)
+    return PRI_MIN;
+  else
+    return priority;
+}
+
+static void
+shuffle_ready_thread (struct thread *thread)
+{
+  ASSERT (intr_get_level () == INTR_OFF);
+  ASSERT (!intr_context ());
+  ASSERT (thread->status == THREAD_READY);
+
+  list_remove(&thread->elem);
+  list_insert_ordered (&ready_list, &thread->elem, thread_priority_compare,
+                       NULL);
+}
+static bool
+lock_in_thread_locks_owned_list (struct lock *lock)
+{
+  struct list *locks_list;
+  struct list_elem *e;
+
+  locks_list = &thread_current ()->locks_owned_list;
+  for (e = list_begin (locks_list); e != list_end (locks_list);
+       e = list_next (e))
+    if (lock == list_entry (e, struct lock, elem))
+      return true;
+  
+  return false;
+}
+
+static void
+maybe_lower_priority (struct thread *thread, int priority)
+{
+  ASSERT (priority <= thread->priority);
+  
+  if (priority < thread->base_priority)
+    thread->priority = thread->base_priority;
+  else
+    thread->priority = priority;
+}
+
 
 void maybe_yield_to_ready_thread (void) {
   ASSERT (intr_get_level () == INTR_OFF);
