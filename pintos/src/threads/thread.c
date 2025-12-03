@@ -17,17 +17,8 @@
 
 /* List of threads that are asleep. */
 static struct list asleep_threads;
-static struct list ready_list;
 
 #define PRI_MAX_DONATION 8
-//helper function
-bool thread_priority_more(const struct list_elem *a,
-                          const struct list_elem *b,
-                          void *aux UNUSED) {
-    const struct thread *ta = list_entry(a, struct thread, elem);
-    const struct thread *tb = list_entry(b, struct thread, elem);
-    return ta->priority > tb->priority;
-}
 
 static bool maybe_raise_priority(struct thread *, int);
 void maybe_yield_to_ready_thread (void);
@@ -450,10 +441,9 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  if (!intr_context() && t->priority > thread_current()->priority)
-    thread_yield();
   list_insert_ordered (&ready_list, &t->elem, thread_priority_less, NULL);
   t->status = THREAD_READY;
+  maybe_yield_to_ready_thread ();
   intr_set_level (old_level);
 }
 
@@ -686,8 +676,8 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
-  t->original_priority = priority;
-  list_init (&t->locks);
+  t->base_priority = priority;
+  list_init (&t->locks_owned_list);
   t->waiting_lock = NULL;
   t->magic = THREAD_MAGIC;
 
